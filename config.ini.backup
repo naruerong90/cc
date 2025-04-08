@@ -1,0 +1,78 @@
+[Branch]
+id = branch_shop_1
+name = สาขาหลัก
+location = กรุงเทพฯ
+
+[Camera]
+source = 0
+width = 640
+height = 480
+fps = 30
+detection_line = 240
+
+[Detection]
+min_area = 500
+threshold = 20
+blur_size = 21
+direction_threshold = 10
+
+[Database]
+db_name = shop_tracking.db
+backup_interval = 86400
+
+[Recording]
+interval_seconds = 300
+export_path = exports/
+save_snapshots = true
+
+[API]
+server_url = http://server-ip:5000
+api_key = 
+sync_interval = 900
+retry_interval = 60
+timeout = 30
+
+[MultiCameras]
+enabled = true
+camera_count = 2
+username = admin
+password = Admin@1234
+
+# กล้องหน้าร้าน
+[Camera_1]
+name = ประตูหน้า
+type = dahua
+host = 10.10.1.230
+port = 554
+channel = 1
+detection_line = 240
+min_area = 500
+
+# กล้องหลังร้าน
+[Camera_2]
+name = ประตูหลัง
+type = dahua
+host = 10.10.1.230
+port = 554
+channel = 2
+detection_line = 240
+min_area = 550
+
+# ตัวอย่างการตั้งค่าโดยระบุ URL โดยตรง
+# [Camera_3]
+# name = ประตูข้าง
+# source = rtsp://admin:Admin%401234@10.10.1.230:554/cam/realmonitor?channel=3&subtype=0
+# detection_line = 240
+# min_area = 550
+
+# ตัวอย่างการตั้งค่ากล้อง Hikvision
+# [Camera_4]
+# name = ลานจอดรถ
+# type = hikvision
+# host = 10.10.1.231
+# port = 554
+# username = admin
+# password = Admin1234
+# channel = 1
+# detection_line = 240
+# min_area = 600
