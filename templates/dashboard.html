@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบนับลูกค้า - Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .card {
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card-counter {
+            padding: 20px;
+            border-radius: 10px;
+            color: #FFF;
+            height: 120px;
+            transition: .3s linear all;
+        }
+        .card-counter.primary {
+            background: linear-gradient(45deg, #4099ff, #73b4ff);
+        }
+        .card-counter.danger {
+            background: linear-gradient(45deg, #ff5370, #ff869a);
+        }
+        .card-counter.success {
+            background: linear-gradient(45deg, #2ed8b6, #59e0c5);
+        }
+        .card-counter.info {
+            background: linear-gradient(45deg, #ffb64d, #ffcb80);
+        }
+        .card-counter i {
+            font-size: 4em;
+            opacity: 0.3;
+        }
+        .card-counter .count-numbers {
+            position: absolute;
+            right: 25px;
+            top: 20px;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .card-counter .count-name {
+            position: absolute;
+            right: 25px;
+            top: 65px;
+            font-style: italic;
+            text-transform: capitalize;
+            opacity: 0.7;
+            font-weight: bold;
+        }
+        .video-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+            background-color: #000;
+            height: 480px;
+        }
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .btn-control {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .camera-selector {
+            margin-bottom: 10px;
+        }
+        #status-bar {
+            background-color: #343a40;
+            color: #fff;
+            padding: 10px 15px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        @media (max-width: 768px) {
+            .card-counter .count-numbers {
+                font-size: 24px;
+            }
+            .card-counter .count-name {
+                font-size: 14px;
+            }
+            .video-container {
+                height: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-video me-2"></i>ระบบนับลูกค้าผ่านกล้องวงจรปิด
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard"><i class="fas fa-tachometer-alt me-1"></i>หน้าหลัก</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/cameras"><i class="fas fa-camera me-1"></i>จัดการกล้อง</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/stats"><i class="fas fa-chart-bar me-1"></i>สถิติและรายงาน</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings"><i class="fas fa-cog me-1"></i>ตั้งค่า</a>
+                    </li>
+                </ul>
+            </div>
+            <span class="navbar-text">
+                <i class="fas fa-store me-1"></i> {{ branch_name }} ({{ branch_id }})
+            </span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">กำลังโหลด...</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-video me-1"></i> กล้องวงจรปิด
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="cameraSelector" class="form-label">เลือกกล้อง:</label>
+                            <select class="form-select camera-selector" id="cameraSelector">
+                                {% for cam in camera_list %}
+                                <option value="{{ cam.id }}">{{ cam.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="video-container">
+                            <img id="videoFrame" src="/static/loading.gif" alt="กำลังโหลด...">
+                        </div>
+                        <div class="mt-3">
+                            <button id="startCameraBtn" class="btn btn-success btn-control">
+                                <i class="fas fa-play"></i> เริ่มกล้อง
+                            </button>
+                            <button id="stopCameraBtn" class="btn btn-danger btn-control">
+                                <i class="fas fa-stop"></i> หยุดกล้อง
+                            </button>
+                            <button id="resetCountersBtn" class="btn btn-warning btn-control">
+                                <i class="fas fa-redo"></i> รีเซ็ตตัวนับ
+                            </button>
+                            <button id="snapshotBtn" class="btn btn-info btn-control">
+                                <i class="fas fa-camera"></i> ถ่ายภาพ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-info-circle me-1"></i> ข้อมูลสาขา
+                    </div>
+                    <div class="card-body">
+                        <p><strong>รหัสสาขา:</strong> {{ branch_id }}</p>
+                        <p><strong>ชื่อสาขา:</strong> {{ branch_name }}</p>
+                        <p><strong>สถานะกล้อง:</strong> <span id="cameraStatus">{{ "ทำงาน" if status.running else "ไม่ทำงาน" }}</span></p>
+                        <p><strong>เวลาปัจจุบัน:</strong> <span id="currentTime"></span></p>
+                    </div>
+                </div>
+
+                <div class="card-counter primary">
+                    <i class="fas fa-users"></i>
+                    <span class="count-numbers" id="currentCount">{{ status.people_in_store }}</span>
+                    <span class="count-name">จำนวนลูกค้าในร้าน</span>
+                </div>
+
+                <div class="card-counter success">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span class="count-numbers" id="entryCount">{{ status.entry_count }}</span>
+                    <span class="count-name">ลูกค้าเข้าร้านทั้งหมด</span>
+                </div>
+
+                <div class="card-counter danger">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="count-numbers" id="exitCount">{{ status.exit_count }}</span>
+                    <span class="count-name">ลูกค้าออกจากร้านทั้งหมด</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-bar">
+        <div class="row">
+            <div class="col-md-6" id="appStatus">
+                <i class="fas fa-circle text-success me-1"></i> พร้อมใช้งาน
+            </div>
+            <div class="col-md-6 text-end" id="syncStatus">
+                <i class="fas fa-sync"></i> การซิงค์: ไม่ทำงาน
+            </div>
+        </div>
+    </div>
+
+    <!-- Snapshot Modal -->
+    <div class="modal fade" id="snapshotModal" tabindex="-1" aria-labelledby="snapshotModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="snapshotModalLabel">ภาพถ่าย</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="snapshotImage" src="" alt="ภาพถ่าย" class="img-fluid">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                    <a id="downloadSnapshotBtn" href="#" class="btn btn-primary" download>ดาวน์โหลด</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // เลือกกล้อง
+        let selectedCameraId = $("#cameraSelector").val();
+        let isVideoRunning = false;
+        let updateInterval;
+        let statusUpdateInterval;
+        let frameUpdateInterval;
+        let snapshotModal;
+
+        // อัพเดตเวลาปัจจุบัน
+        function updateTime() {
+            const now = new Date();
+            const options = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('currentTime').textContent = now.toLocaleString('th-TH', options);
+        }
+
+        // อัพเดตสถานะ
+        function updateStatus() {
+            $.ajax({
+                url: '/api/status',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    // อัพเดตตัวนับ
+                    $('#currentCount').text(data.people_in_store);
+                    $('#entryCount').text(data.entry_count);
+                    $('#exitCount').text(data.exit_count);
+                    $('#cameraStatus').text(data.running ? 'ทำงาน' : 'ไม่ทำงาน');
+                    
+                    // อัพเดตสถานะการซิงค์
+                    if (data.sync) {
+                        const syncRunning = data.sync.running;
+                        const nextSyncTime = new Date(data.sync.next_sync_time * 1000);
+                        const now = new Date();
+                        const timeToNextSync = Math.max(0, Math.floor((nextSyncTime - now) / 1000));
+                        
+                        if (syncRunning) {
+                            $('#syncStatus').html(`<i class="fas fa-sync fa-spin"></i> การซิงค์: ทำงาน (ครั้งต่อไปใน ${timeToNextSync} วินาที)`);
+                        } else {
+                            $('#syncStatus').html(`<i class="fas fa-sync"></i> การซิงค์: ไม่ทำงาน`);
+                        }
+                    }
+                    
+                    // สถานะกล้อง
+                    if (data.running) {
+                        $('#startCameraBtn').prop('disabled', true);
+                        $('#stopCameraBtn').prop('disabled', false);
+                        $('#appStatus').html('<i class="fas fa-circle text-success me-1"></i> กล้องกำลังทำงาน');
+                        // เริ่มอัพเดตเฟรม
+                        startFrameUpdate();
+                    } else {
+                        $('#startCameraBtn').prop('disabled', false);
+                        $('#stopCameraBtn').prop('disabled', true);
+                        $('#appStatus').html('<i class="fas fa-circle text-warning me-1"></i> กล้องไม่ทำงาน');
+                        // หยุดอัพเดตเฟรม
+                        stopFrameUpdate();
+                    }
+                },
+                error: function() {
+                    $('#appStatus').html('<i class="fas fa-circle text-danger me-1"></i> ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์');
+                }
+            });
+        }
+
+        // อัพเดตเฟรม
+        function updateFrame() {
+            if (!isVideoRunning) return;
+            
+            $.ajax({
+                url: `/api/frame/${selectedCameraId}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.frame) {
+                        $('#videoFrame').attr('src', 'data:image/jpeg;base64,' + data.frame);
+                    }
+                }
+            });
+        }
+
+        // เริ่มอัพเดตเฟรม
+        function startFrameUpdate() {
+            isVideoRunning = true;
+            if (!frameUpdateInterval) {
+                frameUpdateInterval = setInterval(updateFrame, 100); // อัพเดตทุก 100ms (10 fps)
+            }
+        }
+
+        // หยุดอัพเดตเฟรม
+        function stopFrameUpdate() {
+            isVideoRunning = false;
+            if (frameUpdateInterval) {
+                clearInterval(frameUpdateInterval);
+                frameUpdateInterval = null;
+            }
+        }
+
+        // เริ่มกล้อง
+        function startCamera() {
+            $('#loadingSpinner').show();
+            $('#startCameraBtn').prop('disabled', true);
+            
+            $.ajax({
+                url: '/api/camera/start',
+                type: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.success) {
+                        updateStatus();
+                        startFrameUpdate();
+                    } else {
+                        alert('ไม่สามารถเริ่มการทำงานของกล้องได้: ' + data.message);
+                        $('#startCameraBtn').prop('disabled', false);
+                    }
+                    $('#loadingSpinner').hide();
+                },
+                error: function() {
+                    alert('เกิดข้อผิดพลาดในการเริ่มกล้อง');
+                    $('#startCameraBtn').prop('disabled', false);
+                    $('#loadingSpinner').hide();
+                }
+            });
+        }
+
+        // หยุดกล้อง
+        function stopCamera() {
+            $('#loadingSpinner').show();
+            $('#stopCameraBtn').prop('disabled', true);
+            
+            $.ajax({
+                url: '/api/camera/stop',
+                type: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.success) {
+                        updateStatus();
+                        stopFrameUpdate();
+                    } else {
+                        alert('ไม่สามารถหยุดการทำงานของกล้องได้: ' + data.message);
+                    }
+                    $('#loadingSpinner').hide();
+                },
+                error: function() {
+                    alert('เกิดข้อผิดพลาดในการหยุดกล้อง');
+                    $('#stopCameraBtn').prop('disabled', false);
+                    $('#loadingSpinner').hide();
+                }
+            });
+        }
+
+        // รีเซ็ตตัวนับ
+        function resetCounters() {
+            if (confirm('คุณต้องการรีเซ็ตตัวนับลูกค้าทั้งหมดหรือไม่?')) {
+                $('#loadingSpinner').show();
+                
+                $.ajax({
+                    url: '/api/camera/reset',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.success) {
+                            updateStatus();
+                        } else {
+                            alert('ไม่สามารถรีเซ็ตตัวนับได้: ' + data.message);
+                        }
+                        $('#loadingSpinner').hide();
+                    },
+                    error: function() {
+                        alert('เกิดข้อผิดพลาดในการรีเซ็ตตัวนับ');
+                        $('#loadingSpinner').hide();
+                    }
+                });
+            }
+        }
+
+        // ถ่ายภาพ
+        function takeSnapshot() {
+            $('#loadingSpinner').show();
+            
+            $.ajax({
+                url: '/api/camera/snapshot',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ camera_id: selectedCameraId }),
+                dataType: 'json',
+                success: function(data) {
+                    if (data.success) {
+                        // แสดงภาพถ่ายในโมดัล
+                        $('#snapshotImage').attr('src', data.url);
+                        $('#downloadSnapshotBtn').attr('href', data.url);
+                        snapshotModal.show();
+                    } else {
+                        alert('ไม่สามารถถ่ายภาพได้: ' + data.message);
+                    }
+                    $('#loadingSpinner').hide();
+                },
+                error: function() {
+                    alert('เกิดข้อผิดพลาดในการถ่ายภาพ');
+                    $('#loadingSpinner').hide();
+                }
+            });
+        }
