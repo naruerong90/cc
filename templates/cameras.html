@@ -8,65 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body {
-            font-family: 'Sarabun', sans-serif;
-            background-color: #f8f9fa;
-        }
-        .navbar-brand {
-            font-weight: bold;
-        }
-        .card {
-            margin-bottom: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .table-cameras {
-            width: 100%;
-        }
-        .table-cameras th, .table-cameras td {
-            vertical-align: middle;
-        }
-        .camera-details {
-            border-left: 1px solid #dee2e6;
-            height: 100%;
-            padding-left: 20px;
-        }
-        .loading-spinner {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-        }
-        .btn-icon {
-            margin-right: 5px;
-        }
-        .status-badge {
-            font-size: 0.8em;
-            padding: 0.3em 0.6em;
-        }
-        #status-bar {
-            background-color: #343a40;
-            color: #fff;
-            padding: 10px 15px;
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            font-size: 14px;
-            z-index: 1000;
-        }
-        @media (max-width: 768px) {
-            .camera-details {
-                border-left: none;
-                border-top: 1px solid #dee2e6;
-                padding-left: 0;
-                margin-top: 20px;
-                padding-top: 20px;
-            }
-        }
-    </style>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <!-- Navbar -->
@@ -413,6 +356,27 @@
         </div>
     </div>
 
+    <!-- Delete Camera Confirmation Modal -->
+    <div class="modal fade" id="deleteCameraModal" tabindex="-1" aria-labelledby="deleteCameraModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteCameraModalLabel">ยืนยันการลบกล้อง</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>คุณต้องการลบกล้อง <span id="deleteModalCameraName" class="fw-bold"></span> ใช่หรือไม่?</p>
+                    <p class="text-danger">คำเตือน: การกระทำนี้ไม่สามารถกู้คืนได้</p>
+                    <input type="hidden" id="deleteCameraId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">ยืนยันการลบ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS and Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -420,6 +384,7 @@
         // Modal ต่างๆ
         let addCameraModal;
         let editCameraModal;
+        let deleteCameraModal;
         let currentCameraId = null;
 
         // โหลดรายละเอียดกล้อง
@@ -517,7 +482,7 @@
         }
 
         // ทดสอบการเชื่อมต่อกล้อง
-        function testConnection(formId, isEdit = false) {
+        function testConnection(isEdit = false) {
             $('#loadingSpinner').show();
             
             const formSelector = isEdit ? '#editCameraForm' : '#addCameraForm';
@@ -537,4 +502,344 @@
                 type: isEdit ? $('#editCameraType').val() : $('#cameraType').val()
             };
             
-            if (
+            if (connectionMode === 'direct') {
+                // ใช้ URL โดยตรง
+                requestData.source = isEdit ? $('#editCameraSource').val() : $('#cameraSource').val();
+            } else {
+                // ใช้พารามิเตอร์
+                requestData.host = isEdit ? $('#editCameraHost').val() : $('#cameraHost').val();
+                requestData.port = isEdit ? $('#editCameraPort').val() : $('#cameraPort').val();
+                requestData.username = isEdit ? $('#editCameraUsername').val() : $('#cameraUsername').val();
+                requestData.password = isEdit ? $('#editCameraPassword').val() : $('#cameraPassword').val();
+                requestData.channel = isEdit ? $('#editCameraChannel').val() : $('#cameraChannel').val();
+                requestData.path = isEdit ? $('#editCameraPath').val() : $('#cameraPath').val();
+            }
+            
+            // เรียก API ทดสอบการเชื่อมต่อ
+            $.ajax({
+                url: '/api/camera/test_connection',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(requestData),
+                dataType: 'json',
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+                    
+                    if (response.success) {
+                        alert('เชื่อมต่อกับกล้องสำเร็จ');
+                    } else {
+                        alert('ไม่สามารถเชื่อมต่อกับกล้องได้: ' + response.message);
+                    }
+                },
+                error: function() {
+                    $('#loadingSpinner').hide();
+                    alert('เกิดข้อผิดพลาดในการทดสอบการเชื่อมต่อ');
+                }
+            });
+        }
+
+        // เพิ่มกล้องใหม่
+        function addCamera() {
+            $('#loadingSpinner').show();
+            
+            const connectionMode = $('input[name="connectionMode"]:checked').val();
+            const formData = {
+                name: $('#cameraName').val(),
+                type: $('#cameraType').val(),
+                connection_mode: connectionMode,
+                detection_line: $('#detectionLine').val(),
+                min_area: $('#minArea').val(),
+                detection_angle: $('#detectionAngle').val()
+            };
+            
+            if (connectionMode === 'direct') {
+                // ใช้ URL โดยตรง
+                formData.source = $('#cameraSource').val();
+            } else {
+                // ใช้พารามิเตอร์
+                formData.host = $('#cameraHost').val();
+                formData.port = $('#cameraPort').val();
+                formData.username = $('#cameraUsername').val();
+                formData.password = $('#cameraPassword').val();
+                formData.channel = $('#cameraChannel').val();
+                formData.path = $('#cameraPath').val();
+            }
+            
+            // เรียก API เพิ่มกล้อง
+            $.ajax({
+                url: '/api/camera/add',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                dataType: 'json',
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+                    
+                    if (response.success) {
+                        addCameraModal.hide();
+                        alert(response.message);
+                        refreshCameraList();
+                    } else {
+                        alert('ไม่สามารถเพิ่มกล้องได้: ' + response.message);
+                    }
+                },
+                error: function() {
+                    $('#loadingSpinner').hide();
+                    alert('เกิดข้อผิดพลาดในการเพิ่มกล้อง');
+                }
+            });
+        }
+
+        // โหลดข้อมูลกล้องสำหรับแก้ไข
+        function loadCameraForEdit(cameraId) {
+            $('#loadingSpinner').show();
+            
+            $.ajax({
+                url: `/api/camera/${cameraId}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        const camera = response.camera;
+                        
+                        // เก็บ ID สำหรับการอัพเดต
+                        $('#editCameraId').val(camera.id);
+                        
+                        // กรอกข้อมูลในฟอร์ม
+                        $('#editCameraName').val(camera.name);
+                        $('#editCameraType').val(camera.type);
+                        
+                        // ตั้งค่าโหมดการเชื่อมต่อ
+                        if (camera.connection_mode === 'direct') {
+                            $('#editDirectMode').prop('checked', true);
+                            $('#editParamsForm').hide();
+                            $('#editDirectForm').show();
+                            
+                            // กรอกข้อมูล URL
+                            $('#editCameraSource').val(camera.source);
+                        } else {
+                            $('#editParamsMode').prop('checked', true);
+                            $('#editParamsForm').show();
+                            $('#editDirectForm').hide();
+                            
+                            // กรอกข้อมูลพารามิเตอร์
+                            $('#editCameraHost').val(camera.host);
+                            $('#editCameraPort').val(camera.port);
+                            $('#editCameraUsername').val(camera.username);
+                            $('#editCameraPassword').val(camera.password);
+                            $('#editCameraChannel').val(camera.channel);
+                            $('#editCameraPath').val(camera.path);
+                        }
+                        
+                        // กรอกข้อมูลการตรวจจับ
+                        $('#editDetectionLine').val(camera.detection_line);
+                        $('#editMinArea').val(camera.min_area);
+                        $('#editDetectionAngle').val(camera.detection_angle);
+                        
+                        // แสดง Modal
+                        editCameraModal.show();
+                    } else {
+                        alert('ไม่สามารถโหลดข้อมูลกล้องได้: ' + response.message);
+                    }
+                    
+                    $('#loadingSpinner').hide();
+                },
+                error: function() {
+                    $('#loadingSpinner').hide();
+                    alert('เกิดข้อผิดพลาดในการโหลดข้อมูลกล้อง');
+                }
+            });
+        }
+
+        // อัพเดตกล้อง
+        function updateCamera() {
+            $('#loadingSpinner').show();
+            
+            const cameraId = $('#editCameraId').val();
+            const connectionMode = $('input[name="editConnectionMode"]:checked').val();
+            const formData = {
+                name: $('#editCameraName').val(),
+                type: $('#editCameraType').val(),
+                connection_mode: connectionMode,
+                detection_line: $('#editDetectionLine').val(),
+                min_area: $('#editMinArea').val(),
+                detection_angle: $('#editDetectionAngle').val()
+            };
+            
+            if (connectionMode === 'direct') {
+                // ใช้ URL โดยตรง
+                formData.source = $('#editCameraSource').val();
+            } else {
+                // ใช้พารามิเตอร์
+                formData.host = $('#editCameraHost').val();
+                formData.port = $('#editCameraPort').val();
+                formData.username = $('#editCameraUsername').val();
+                formData.password = $('#editCameraPassword').val();
+                formData.channel = $('#editCameraChannel').val();
+                formData.path = $('#editCameraPath').val();
+            }
+            
+            // เรียก API แก้ไขกล้อง
+            $.ajax({
+                url: `/api/camera/edit/${cameraId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                dataType: 'json',
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+                    
+                    if (response.success) {
+                        editCameraModal.hide();
+                        alert(response.message);
+                        refreshCameraList();
+                    } else {
+                        alert('ไม่สามารถแก้ไขกล้องได้: ' + response.message);
+                    }
+                },
+                error: function() {
+                    $('#loadingSpinner').hide();
+                    alert('เกิดข้อผิดพลาดในการแก้ไขกล้อง');
+                }
+            });
+        }
+
+        // แสดง Modal ยืนยันการลบกล้อง
+        function showDeleteConfirmation(cameraId, cameraName) {
+            $('#deleteCameraId').val(cameraId);
+            $('#deleteModalCameraName').text(cameraName);
+            deleteCameraModal.show();
+        }
+
+        // ลบกล้อง
+        function deleteCamera() {
+            $('#loadingSpinner').show();
+            
+            const cameraId = $('#deleteCameraId').val();
+            
+            // เรียก API ลบกล้อง
+            $.ajax({
+                url: `/api/camera/delete/${cameraId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+                    
+                    if (response.success) {
+                        deleteCameraModal.hide();
+                        alert(response.message);
+                        refreshCameraList();
+                    } else {
+                        alert('ไม่สามารถลบกล้องได้: ' + response.message);
+                    }
+                },
+                error: function() {
+                    $('#loadingSpinner').hide();
+                    alert('เกิดข้อผิดพลาดในการลบกล้อง');
+                }
+            });
+        }
+
+        // อัพเดตเวลาปัจจุบัน
+        function updateTime() {
+            const now = new Date();
+            const options = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('time').textContent = now.toLocaleString('th-TH', options);
+        }
+
+        // เมื่อโหลดหน้า
+        $(document).ready(function() {
+            // สร้าง Modal objects
+            addCameraModal = new bootstrap.Modal(document.getElementById('addCameraModal'));
+            editCameraModal = new bootstrap.Modal(document.getElementById('editCameraModal'));
+            deleteCameraModal = new bootstrap.Modal(document.getElementById('deleteCameraModal'));
+            
+            // สลับการแสดงผลฟอร์มการเชื่อมต่อใน Modal เพิ่มกล้อง
+            $('input[name="connectionMode"]').change(function() {
+                if ($(this).val() === 'params') {
+                    $('#paramsForm').show();
+                    $('#directForm').hide();
+                } else {
+                    $('#paramsForm').hide();
+                    $('#directForm').show();
+                }
+            });
+            
+            // สลับการแสดงผลฟอร์มการเชื่อมต่อใน Modal แก้ไขกล้อง
+            $('input[name="editConnectionMode"]').change(function() {
+                if ($(this).val() === 'params') {
+                    $('#editParamsForm').show();
+                    $('#editDirectForm').hide();
+                } else {
+                    $('#editParamsForm').hide();
+                    $('#editDirectForm').show();
+                }
+            });
+            
+            // ปุ่มทดสอบการเชื่อมต่อ (Modal เพิ่มกล้อง)
+            $('#testConnectionBtn').click(function() {
+                testConnection(false);
+            });
+            
+            // ปุ่มทดสอบการเชื่อมต่อ (Modal แก้ไขกล้อง)
+            $('#editTestConnectionBtn').click(function() {
+                testConnection(true);
+            });
+            
+            // ปุ่มบันทึกกล้องใหม่
+            $('#saveCameraBtn').click(function() {
+                addCamera();
+            });
+            
+            // ปุ่มอัพเดตกล้อง
+            $('#updateCameraBtn').click(function() {
+                updateCamera();
+            });
+            
+            // ปุ่มยืนยันการลบกล้อง
+            $('#confirmDeleteBtn').click(function() {
+                deleteCamera();
+            });
+            
+            // ปุ่มรีเฟรช
+            $('#refreshBtn').click(function(e) {
+                e.preventDefault();
+                refreshCameraList();
+            });
+            
+            // ปุ่มดูรายละเอียดกล้อง
+            $(document).on('click', '.view-camera-btn', function() {
+                const cameraId = $(this).data('camera-id');
+                loadCameraDetails(cameraId);
+            });
+            
+            // ปุ่มแก้ไขกล้อง
+            $(document).on('click', '.edit-camera-btn', function() {
+                const cameraId = $(this).data('camera-id');
+                loadCameraForEdit(cameraId);
+            });
+            
+            // ปุ่มลบกล้อง
+            $(document).on('click', '.delete-camera-btn', function() {
+                const cameraId = $(this).data('camera-id');
+                const cameraName = $(this).closest('tr').find('td:nth-child(2)').text();
+                showDeleteConfirmation(cameraId, cameraName);
+            });
+            
+            // โหลดรายละเอียดกล้องแรกโดยอัตโนมัติถ้ามี
+            if ($('#camerasTableBody tr').length > 0) {
+                const firstCameraId = $('#camerasTableBody tr:first').data('camera-id');
+                loadCameraDetails(firstCameraId);
+            }
+        });
+    </script>
+</body>
+</html>
