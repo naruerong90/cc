@@ -204,6 +204,7 @@
         // เริ่มกล้อง
         function startCamera() {
             showLoading();
+            $('#appStatus').html('<i class="fas fa-circle text-warning me-1"></i> กำลังเริ่มกล้อง...');
             $('#startCameraBtn').prop('disabled', true);
             
             $.ajax({
@@ -216,19 +217,23 @@
                         updateStatus();
                         startFrameUpdate();
                         showAlert('เริ่มการทำงานของกล้องสำเร็จ', 'success');
+                        $('#appStatus').html('<i class="fas fa-circle text-success me-1"></i> กล้องกำลังทำงาน');
                     } else {
                         showAlert('ไม่สามารถเริ่มการทำงานของกล้องได้: ' + data.message, 'danger');
                         $('#startCameraBtn').prop('disabled', false);
+                        $('#appStatus').html('<i class="fas fa-circle text-danger me-1"></i> ไม่สามารถเริ่มกล้องได้');
                     }
                     hideLoading();
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error("Start camera error:", status, error, xhr.responseText);
                     showAlert('เกิดข้อผิดพลาดในการเริ่มกล้อง', 'danger');
                     $('#startCameraBtn').prop('disabled', false);
+                    $('#appStatus').html('<i class="fas fa-circle text-danger me-1"></i> เกิดข้อผิดพลาด');
                     hideLoading();
                 }
             });
-        }
+}
 
         // หยุดกล้อง
         function stopCamera() {

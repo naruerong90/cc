@@ -290,20 +290,20 @@ def build_rtsp_url(data):
         return data.get('url', '')
     
     # สร้าง URL จากพารามิเตอร์
-    camera_type = data.get('camera_type', 'generic')
-    host = data.get('host', '')
+    camera_type = data.get('camera_type', 'dahua')
+    host = data.get('host', '10.10.1.230')
     port = data.get('port', '554')
     username = data.get('username', 'admin')
-    password = data.get('password', '')
+    password = data.get('password', 'Admin@1234')
     channel = data.get('channel', '1')
     path = data.get('path', '')
     
     # เข้ารหัสรหัสผ่าน
-    encoded_password = urllib.parse.quote(password)
+    encoded_password = urllib.parse.quote()
     
     # สร้าง URL ตามประเภทกล้อง
     if camera_type == 'dahua':
-        return f"rtsp://{username}:{encoded_password}@{host}:{port}/cam/realmonitor?channel={channel}&subtype=0"
+        return f"rtsp://{username}:{encoded_password}@{host}:{port}/cam/realmonitor?channel={channel}&subtype=1"
     elif camera_type == 'hikvision':
         return f"rtsp://{username}:{encoded_password}@{host}:{port}/Streaming/Channels/{channel}01"
     else:  # generic
