@@ -172,20 +172,35 @@ async function callApi(url, method = 'GET', data = null) {
  * อัพเดตเฟรมวิดีโอ
  */
 function updateVideoFrame() {
-    if (!cameraRunning || !selectedCameraId) return;
+    // เพิ่ม log เพื่อดูการทำงาน
+    console.log("Updating video frame, camera running:", cameraRunning, "selected camera ID:", selectedCameraId);
     
-    callApi(`/api/frame/${selectedCameraId}`, 'GET')
-        .then(data => {
+    if (!cameraRunning || !selectedCameraId) {
+        console.log("Camera not running or no camera selected");
+        return;
+    }
+    
+    $.ajax({
+        url: `/api/frame/${selectedCameraId}`,
+        type: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            console.log("Frame data received:", data);
             if (data.frame) {
                 const imgElement = document.getElementById('videoFrame');
                 if (imgElement) {
                     imgElement.src = 'data:image/jpeg;base64,' + data.frame;
+                } else {
+                    console.error("Video frame element not found");
                 }
+            } else {
+                console.warn("No frame data in response");
             }
-        })
-        .catch(error => {
-            console.error('Error updating video frame:', error);
-        });
+        },
+        error: function(xhr, status, error) {
+            console.error("Error fetching frame:", error);
+        }
+    });
 }
 
 /**
@@ -273,20 +288,31 @@ function updateSyncStatus(syncData) {
  */
 function startCamera() {
     toggleSpinner(true);
+    console.log("Starting camera...");
     
-    callApi('/api/camera/start', 'POST')
-        .then(data => {
+    $.ajax({
+        url: '/api/camera/start',
+        type: 'POST',
+        contentType: 'application/json',
+        dataType: 'json',
+        success: function(data) {
+            console.log("Camera start response:", data);
             if (data.success) {
                 showAlert('เริ่มการทำงานของกล้องสำเร็จ', 'success');
+                cameraRunning = true; // เพิ่มบรรทัดนี้เพื่อให้แน่ใจว่า flag ถูกตั้งค่า
                 updateStatus();
+                startFrameUpdate(); // เพิ่มบรรทัดนี้เพื่อเริ่มการอัพเดตเฟรม
             } else {
                 showAlert(`ไม่สามารถเริ่มการทำงานของกล้องได้: ${data.message}`, 'danger');
             }
-        })
-        .catch(error => {
-            console.error('Error starting camera:', error);
+            toggleSpinner(false);
+        },
+        error: function(xhr, status, error) {
+            console.error("Error starting camera:", error);
             showAlert('เกิดข้อผิดพลาดในการเริ่มกล้อง', 'danger');
-        });
+            toggleSpinner(false);
+        }
+    });
 }
 
 /**

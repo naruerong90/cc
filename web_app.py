@@ -180,8 +180,23 @@ def settings():
 # API สำหรับดึงเฟรมปัจจุบันของกล้อง
 @app.route('/api/frame/<int:camera_id>')
 def get_frame(camera_id):
+    app.logger.debug(f"Getting frame for camera: {camera_id}")
+    
+    # ตรวจสอบว่ามีเฟรมใน video_frames
     if camera_id in video_frames:
         return jsonify({'frame': video_frames[camera_id]})
+    
+    # ถ้าไม่มีใน video_frames ให้ลองดึงเฟรมปัจจุบันจากกล้องโดยตรง
+    for cam in camera.cameras:
+        if cam['id'] == camera_id and cam['running'] and 'current_frame' in cam and cam['current_frame'] is not None:
+            # แปลงเฟรมเป็น base64
+            _, buffer = cv2.imencode('.jpg', cam['current_frame'], [cv2.IMWRITE_JPEG_QUALITY, 80])
+            base64_frame = base64.b64encode(buffer).decode('utf-8')
+            # เก็บในแคช
+            video_frames[camera_id] = base64_frame
+            return jsonify({'frame': base64_frame})
+    
+    app.logger.warning(f"No frame found for camera: {camera_id}")
     return jsonify({'error': 'ไม่พบเฟรมสำหรับกล้องนี้'}), 404
 
 # API สำหรับเริ่มการทำงานของกล้อง
