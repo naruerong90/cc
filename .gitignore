@@ -1,0 +1,67 @@
+# ไฟล์แคช Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ล็อกไฟล์
+logs/
+*.log
+
+# ฐานข้อมูล
+*.db
+*.sqlite3
+
+# โฟลเดอร์สำหรับส่งออก
+exports/
+
+# ไฟล์แคช
+cache/
+
+# ไฟล์สำรอง
+backups/
+*.bak
+
+# ภาพถ่าย
+static/snapshots/*
+!static/snapshots/.gitkeep
+
+# สภาพแวดล้อมเสมือน
+venv/
+env/
+ENV/
+
+# ไฟล์การตั้งค่า IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ไฟล์ระบบ
+.DS_Store
+Thumbs.db
+
+# ไฟล์การตั้งค่าที่มีข้อมูลส่วนตัว
+.env
+*.pem
+*.key
+
+# ไฟล์ config ที่ใช้งานจริง (แต่เก็บไฟล์ตัวอย่าง)
+config.ini
+!config.ini.backup

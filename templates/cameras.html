@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบนับลูกค้า - จัดการกล้อง</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .card {
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .table-cameras {
+            width: 100%;
+        }
+        .table-cameras th, .table-cameras td {
+            vertical-align: middle;
+        }
+        .camera-details {
+            border-left: 1px solid #dee2e6;
+            height: 100%;
+            padding-left: 20px;
+        }
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        .btn-icon {
+            margin-right: 5px;
+        }
+        .status-badge {
+            font-size: 0.8em;
+            padding: 0.3em 0.6em;
+        }
+        #status-bar {
+            background-color: #343a40;
+            color: #fff;
+            padding: 10px 15px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        @media (max-width: 768px) {
+            .camera-details {
+                border-left: none;
+                border-top: 1px solid #dee2e6;
+                padding-left: 0;
+                margin-top: 20px;
+                padding-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-video me-2"></i>ระบบนับลูกค้าผ่านกล้องวงจรปิด
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard"><i class="fas fa-tachometer-alt me-1"></i>หน้าหลัก</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/cameras"><i class="fas fa-camera me-1"></i>จัดการกล้อง</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/stats"><i class="fas fa-chart-bar me-1"></i>สถิติและรายงาน</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings"><i class="fas fa-cog me-1"></i>ตั้งค่า</a>
+                    </li>
+                </ul>
+            </div>
+            <span class="navbar-text">
+                <i class="fas fa-store me-1"></i> {{ branch_id }}
+            </span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4 mb-5">
+        <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">กำลังโหลด...</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-camera me-1"></i> จัดการกล้อง</span>
+                        <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#addCameraModal">
+                            <i class="fas fa-plus me-1"></i>เพิ่มกล้อง
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-cameras">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>ชื่อกล้อง</th>
+                                        <th>สถานะ</th>
+                                        <th>จำนวนคนในร้าน</th>
+                                        <th>การกระทำ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="camerasTableBody">
+                                    {% for camera in cameras %}
+                                    <tr data-camera-id="{{ camera.id }}">
+                                        <td>{{ camera.id }}</td>
+                                        <td>{{ camera.name }}</td>
+                                        <td>
+                                            {% if camera.running %}
+                                            <span class="badge bg-success status-badge">ทำงาน</span>
+                                            {% else %}
+                                            <span class="badge bg-danger status-badge">ไม่ทำงาน</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ camera.people_in_store }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info view-camera-btn" data-camera-id="{{ camera.id }}">
+                                                <i class="fas fa-eye btn-icon"></i>รายละเอียด
+                                            </button>
+                                            <button class="btn btn-sm btn-primary edit-camera-btn" data-camera-id="{{ camera.id }}">
+                                                <i class="fas fa-edit btn-icon"></i>แก้ไข
+                                            </button>
+                                            <button class="btn btn-sm btn-danger delete-camera-btn" data-camera-id="{{ camera.id }}">
+                                                <i class="fas fa-trash btn-icon"></i>ลบ
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <i class="fas fa-info-circle me-1"></i> รายละเอียดกล้อง
+                    </div>
+                    <div class="card-body">
+                        <div id="cameraDetailsContainer">
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-camera fa-3x mb-3"></i>
+                                <p>กรุณาเลือกกล้องเพื่อดูรายละเอียด</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-bar">
+        <div class="row">
+            <div class="col-md-6" id="appStatus">
+                <i class="fas fa-circle text-success me-1"></i> พร้อมใช้งาน
+            </div>
+            <div class="col-md-6 text-end" id="refreshStatus">
+                <a href="#" id="refreshBtn" class="text-white"><i class="fas fa-sync me-1"></i>รีเฟรช</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Camera Modal -->
+    <div class="modal fade" id="addCameraModal" tabindex="-1" aria-labelledby="addCameraModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCameraModalLabel">เพิ่มกล้องใหม่</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCameraForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="cameraName" class="form-label">ชื่อกล้อง:</label>
+                                <input type="text" class="form-control" id="cameraName" name="name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="cameraType" class="form-label">ประเภทกล้อง:</label>
+                                <select class="form-select" id="cameraType" name="type">
+                                    <option value="dahua">Dahua</option>
+                                    <option value="hikvision">Hikvision</option>
+                                    <option value="generic">Generic</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">การเชื่อมต่อ:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="connectionMode" id="paramsMode" value="params" checked>
+                                <label class="form-check-label" for="paramsMode">
+                                    ระบุพารามิเตอร์ (Host, Port, ...)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="connectionMode" id="directMode" value="direct">
+                                <label class="form-check-label" for="directMode">
+                                    ระบุ URL โดยตรง
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="paramsForm">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="cameraHost" class="form-label">Host:</label>
+                                    <input type="text" class="form-control" id="cameraHost" name="host" placeholder="เช่น 192.168.1.100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="cameraPort" class="form-label">Port:</label>
+                                    <input type="text" class="form-control" id="cameraPort" name="port" value="554">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="cameraUsername" class="form-label">Username:</label>
+                                    <input type="text" class="form-control" id="cameraUsername" name="username" value="admin">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="cameraPassword" class="form-label">Password:</label>
+                                    <input type="password" class="form-control" id="cameraPassword" name="password">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="cameraChannel" class="form-label">Channel:</label>
+                                    <input type="text" class="form-control" id="cameraChannel" name="channel" value="1">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="cameraPath" class="form-label">Path (สำหรับ generic):</label>
+                                    <input type="text" class="form-control" id="cameraPath" name="path" placeholder="เช่น /stream">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="directForm" style="display:none;">
+                            <div class="mb-3">
+                                <label for="cameraSource" class="form-label">RTSP URL:</label>
+                                <input type="text" class="form-control" id="cameraSource" name="source" placeholder="เช่น rtsp://admin:password@192.168.1.100:554/stream">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">การตรวจจับ:</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="detectionLine" class="form-label">ตำแหน่งเส้นตรวจจับ:</label>
+                                    <input type="number" class="form-control" id="detectionLine" name="detection_line" value="240">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="minArea" class="form-label">พื้นที่ขั้นต่ำ:</label>
+                                    <input type="number" class="form-control" id="minArea" name="min_area" value="500">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="detectionAngle" class="form-label">มุมเส้นตรวจจับ:</label>
+                                    <input type="number" class="form-control" id="detectionAngle" name="detection_angle" value="90">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-info" id="testConnectionBtn">ทดสอบการเชื่อมต่อ</button>
+                    <button type="button" class="btn btn-primary" id="saveCameraBtn">บันทึก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Camera Modal -->
+    <div class="modal fade" id="editCameraModal" tabindex="-1" aria-labelledby="editCameraModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editCameraModalLabel">แก้ไขกล้อง</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editCameraForm">
+                        <input type="hidden" id="editCameraId" name="id">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="editCameraName" class="form-label">ชื่อกล้อง:</label>
+                                <input type="text" class="form-control" id="editCameraName" name="name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editCameraType" class="form-label">ประเภทกล้อง:</label>
+                                <select class="form-select" id="editCameraType" name="type">
+                                    <option value="dahua">Dahua</option>
+                                    <option value="hikvision">Hikvision</option>
+                                    <option value="generic">Generic</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">การเชื่อมต่อ:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="editConnectionMode" id="editParamsMode" value="params" checked>
+                                <label class="form-check-label" for="editParamsMode">
+                                    ระบุพารามิเตอร์ (Host, Port, ...)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="editConnectionMode" id="editDirectMode" value="direct">
+                                <label class="form-check-label" for="editDirectMode">
+                                    ระบุ URL โดยตรง
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="editParamsForm">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="editCameraHost" class="form-label">Host:</label>
+                                    <input type="text" class="form-control" id="editCameraHost" name="host" placeholder="เช่น 192.168.1.100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="editCameraPort" class="form-label">Port:</label>
+                                    <input type="text" class="form-control" id="editCameraPort" name="port" value="554">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="editCameraUsername" class="form-label">Username:</label>
+                                    <input type="text" class="form-control" id="editCameraUsername" name="username" value="admin">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="editCameraPassword" class="form-label">Password:</label>
+                                    <input type="password" class="form-control" id="editCameraPassword" name="password">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="editCameraChannel" class="form-label">Channel:</label>
+                                    <input type="text" class="form-control" id="editCameraChannel" name="channel" value="1">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="editCameraPath" class="form-label">Path (สำหรับ generic):</label>
+                                    <input type="text" class="form-control" id="editCameraPath" name="path" placeholder="เช่น /stream">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="editDirectForm" style="display:none;">
+                            <div class="mb-3">
+                                <label for="editCameraSource" class="form-label">RTSP URL:</label>
+                                <input type="text" class="form-control" id="editCameraSource" name="source" placeholder="เช่น rtsp://admin:password@192.168.1.100:554/stream">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">การตรวจจับ:</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="editDetectionLine" class="form-label">ตำแหน่งเส้นตรวจจับ:</label>
+                                    <input type="number" class="form-control" id="editDetectionLine" name="detection_line" value="240">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="editMinArea" class="form-label">พื้นที่ขั้นต่ำ:</label>
+                                    <input type="number" class="form-control" id="editMinArea" name="min_area" value="500">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="editDetectionAngle" class="form-label">มุมเส้นตรวจจับ:</label>
+                                    <input type="number" class="form-control" id="editDetectionAngle" name="detection_angle" value="90">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-info" id="editTestConnectionBtn">ทดสอบการเชื่อมต่อ</button>
+                    <button type="button" class="btn btn-primary" id="updateCameraBtn">บันทึก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Modal ต่างๆ
+        let addCameraModal;
+        let editCameraModal;
+        let currentCameraId = null;
+
+        // โหลดรายละเอียดกล้อง
+        function loadCameraDetails(cameraId) {
+            $('#loadingSpinner').show();
+            
+            $.ajax({
+                url: `/api/camera/${cameraId}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        const camera = response.camera;
+                        currentCameraId = camera.id;
+                        
+                        // แสดงรายละเอียดกล้อง
+                        const detailsHtml = `
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5>${camera.name}</h5>
+                                    <p><strong>ID:</strong> ${camera.id}</p>
+                                    <p><strong>ประเภท:</strong> ${camera.type}</p>
+                                    <p><strong>สถานะ:</strong> <span class="badge ${camera.running ? 'bg-success' : 'bg-danger'}">${camera.running ? 'ทำงาน' : 'ไม่ทำงาน'}</span></p>
+                                    <p><strong>แหล่งที่มา:</strong> ${camera.connection_mode === 'direct' ? camera.source : 'Params-based connection'}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h5>ข้อมูลการตรวจจับ</h5>
+                                    <p><strong>ตำแหน่งเส้นตรวจจับ:</strong> ${camera.detection_line}</p>
+                                    <p><strong>มุมเส้นตรวจจับ:</strong> ${camera.detection_angle}°</p>
+                                    <p><strong>พื้นที่ขั้นต่ำ:</strong> ${camera.min_area}</p>
+                                    <p><strong>จำนวนคนในร้าน:</strong> ${camera.people_in_store}</p>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <h5>สถิติการนับ</h5>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="card bg-primary text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">จำนวนคนในร้าน</h5>
+                                                    <p class="card-text display-6">${camera.people_in_store}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card bg-success text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">คนเข้าร้าน</h5>
+                                                    <p class="card-text display-6">${camera.entry_count}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card bg-danger text-white">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">คนออกร้าน</h5>
+                                                    <p class="card-text display-6">${camera.exit_count}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        $('#cameraDetailsContainer').html(detailsHtml);
+                    } else {
+                        $('#cameraDetailsContainer').html(`
+                            <div class="alert alert-danger">
+                                ${response.message}
+                            </div>
+                        `);
+                    }
+                    
+                    $('#loadingSpinner').hide();
+                },
+                error: function() {
+                    $('#cameraDetailsContainer').html(`
+                        <div class="alert alert-danger">
+                            เกิดข้อผิดพลาดในการโหลดรายละเอียดกล้อง
+                        </div>
+                    `);
+                    $('#loadingSpinner').hide();
+                }
+            });
+        }
+
+        // รีเฟรชรายการกล้อง
+        function refreshCameraList() {
+            $('#loadingSpinner').show();
+            
+            // รีโหลดหน้า
+            window.location.reload();
+        }
+
+        // ทดสอบการเชื่อมต่อกล้อง
+        function testConnection(formId, isEdit = false) {
+            $('#loadingSpinner').show();
+            
+            const formSelector = isEdit ? '#editCameraForm' : '#addCameraForm';
+            const connectionModeSelector = isEdit ? 'input[name="editConnectionMode"]:checked' : 'input[name="connectionMode"]:checked';
+            
+            const connectionMode = $(connectionModeSelector).val();
+            const formData = {};
+            
+            // เก็บข้อมูลจากฟอร์ม
+            $(formSelector).serializeArray().forEach(function(field) {
+                formData[field.name] = field.value;
+            });
+            
+            // ปรับข้อมูลให้ตรงกับ API
+            const requestData = {
+                connection_mode: connectionMode,
+                type: isEdit ? $('#editCameraType').val() : $('#cameraType').val()
+            };
+            
+            if (
